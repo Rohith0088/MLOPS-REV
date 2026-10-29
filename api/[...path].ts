@@ -1,8 +1,14 @@
 import { createApp } from "../server/_core/app";
 import type { Request, Response } from "express";
 
-const app = createApp();
+let app: ReturnType<typeof createApp> | undefined;
 
 export default function handler(req: Request, res: Response) {
-  return app(req, res);
+  try {
+    app ??= createApp();
+    return app(req, res);
+  } catch (error) {
+    console.error("[Vercel] Failed to initialize Node API:", error);
+    return res.status(500).json({ error: "Node API initialization failed" });
+  }
 }
