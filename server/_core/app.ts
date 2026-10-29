@@ -10,10 +10,16 @@ export function createApp() {
   const app = express();
   app.disable("x-powered-by");
   // Install CORS before routes, in both local and serverless entry points.
-  const clientOrigin = process.env.CLIENT_ORIGIN;
+  const clientOrigins = new Set(
+    (process.env.CLIENT_ORIGIN ?? "")
+      .split(",")
+      .map(origin => origin.trim().replace(/\/$/, ""))
+      .filter(Boolean),
+  );
   app.use((req, res, next) => {
-    if (clientOrigin && req.headers.origin === clientOrigin) {
-      res.setHeader("Access-Control-Allow-Origin", clientOrigin);
+    const requestOrigin = req.headers.origin?.replace(/\/$/, "");
+    if (requestOrigin && clientOrigins.has(requestOrigin)) {
+      res.setHeader("Access-Control-Allow-Origin", requestOrigin);
       res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
       res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");

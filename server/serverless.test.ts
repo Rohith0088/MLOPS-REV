@@ -13,7 +13,7 @@ describe("shared serverless Express entry point", () => {
   let server: Server;
   let base: string;
   beforeAll(async () => {
-    vi.stubEnv("CLIENT_ORIGIN", "https://dashboard.example");
+    vi.stubEnv("CLIENT_ORIGIN", "https://dashboard.example, https://frontend.example/");
     server = createApp().listen(0, "127.0.0.1");
     await new Promise<void>(resolve => server.once("listening", resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -40,6 +40,12 @@ describe("shared serverless Express entry point", () => {
       headers: { Origin: "https://unrelated.example" },
     });
     expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+  it("allows configured Render frontend origins with a trailing slash", async () => {
+    const response = await fetch(`${base}/api/trpc/auth.me`, {
+      headers: { Origin: "https://frontend.example/" },
+    });
+    expect(response.headers.get("Access-Control-Allow-Origin")).toBe("https://frontend.example");
   });
   it("allows anonymous access to scan history", async () => {
     const response = await fetch(`${base}/api/trpc/linkDetection.history`);
