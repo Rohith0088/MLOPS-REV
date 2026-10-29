@@ -1910,7 +1910,7 @@ function createApp() {
   return app2;
 }
 
-// api/index.ts
+// serverless/node-entry.ts
 var app;
 function handler(req, res) {
   try {
