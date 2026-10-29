@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm build",
+  "outputDirectory": "dist/public",
+  "rewrites": [
+    { "source": "/fastapi/docs", "destination": "/api/fastapi.py/docs" },
+    { "source": "/fastapi/openapi.json", "destination": "/api/fastapi.py/openapi.json" },
+    { "source": "/fastapi/(.*)", "destination": "/api/fastapi.py" },
+    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "functions": {
+    "api/fastapi.py": {
+      "runtime": "python3.11"
+    },
+    "api/index.ts": {
+      "runtime": "nodejs20.x"
+    }
+  }
+}
