@@ -10,7 +10,9 @@ import { supabase } from "./lib/supabase";
 import "./index.css";
 
 const queryClient = new QueryClient();
-const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+const apiBaseUrl = (
+  import.meta.env.VITE_API_BASE_URL ?? "https://mlops-rev-backend.vercel.app"
+).replace(/\/$/, "");
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
