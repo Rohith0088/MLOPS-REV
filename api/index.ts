@@ -1,11 +1,11 @@
+import { createApp } from "../server/_core/app";
 import type { Request, Response } from "express";
 
-let appPromise: Promise<import("express").Express> | undefined;
+let app: ReturnType<typeof createApp> | undefined;
 
-export default async function handler(req: Request, res: Response) {
+export default function handler(req: Request, res: Response) {
   try {
-    appPromise ??= import("../server/_core/app").then(({ createApp }) => createApp());
-    const app = await appPromise;
+    app ??= createApp();
     return app(req, res);
   } catch (error) {
     console.error("[Vercel] Failed to initialize Node API:", error);
