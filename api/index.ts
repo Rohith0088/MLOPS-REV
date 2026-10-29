@@ -9,6 +9,9 @@ export default async function handler(req: Request, res: Response) {
     return app(req, res);
   } catch (error) {
     console.error("[Vercel] Failed to initialize Node API:", error);
-    return res.status(500).json({ error: "Node API initialization failed" });
+    return res.status(500).json({
+      error: "Node API initialization failed",
+      details: error instanceof Error ? error.message : String(error),
+    });
   }
 }
