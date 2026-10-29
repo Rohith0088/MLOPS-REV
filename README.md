@@ -1,5 +1,65 @@
 # Fraud Sentinel
 
+## Vercel deployment
+
+Import `Rohith0088/MLOPS-REV`, branch `main`, into Vercel. Use the repository
+root (the directory containing `vercel.json`), not `client/`. The checked-in
+configuration builds Vite to `dist/public`, bundles Express/tRPC as
+`api/index.ts`, and serves the existing FastAPI application through
+`api/fastapi.py`. Node 22 and Python 3.12 are selected in source configuration.
+The local `pnpm dev` and `pnpm build && pnpm start` workflows remain available.
+
+Configure these values in **Vercel → Project → Settings → Environment Variables**
+for each deployment environment, then redeploy:
+
+- `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`: public Supabase client settings
+  compiled into the frontend. Never use a service-role key in a `VITE_` variable.
+- `DATABASE_URL`: the exact Supabase-generated pooler URI, with the actual
+  database password. Placeholder values cannot authenticate users or save scans.
+- Leave `VITE_API_BASE_URL` and `CLIENT_ORIGIN` unset for this same-origin deployment.
+  Set the exact frontend origin in `CLIENT_ORIGIN` only for a separate frontend.
+- Keep `DEMO_AUTH_ENABLED=false`. Configure the legacy OAuth variables and a
+  strong `JWT_SECRET` only if using that authentication provider.
+
+`.env` is ignored by Git and by Vercel CLI uploads. Do not commit credentials or
+paste them into build commands. Register the deployed origin and required
+redirect URLs in Supabase Auth before testing email confirmation and sign-in.
+
+Verify these paths on the actual deployment:
+
+- `/` and `/login`: frontend, including direct navigation and reload.
+- `/api/trpc/health`: JSON health response; check `database` rather than assuming
+  a successful HTTP response means PostgreSQL is connected.
+- `/api/trpc/linkDetection.history`: an anonymous request must return HTTP 401.
+- `/fastapi/docs`: Swagger UI, loading `/fastapi/openapi.json` successfully.
+- `/fastapi/health`: reports the actual Python model status.
+
+The Python serverless deployment intentionally installs the lightweight web
+dependencies from `pyproject.toml`. The existing `requirements.txt` remains the
+full local training/inference environment. No Python trained artifact is
+committed; `/fastapi/predict` returns HTTP 503 until a trusted model artifact and
+its compatible ML dependencies are deployed. Do not present Swagger availability
+as proof of a working Python prediction model.
+
+The Node function explicitly bundles the synthetic dataset workbooks and local
+reputation directory used at startup. Existing transaction/pipeline/MLOps state
+is process-local and may reset or differ across Vercel instances. Continuous
+Kafka consumers, mailbox watches, durable jobs, and production model deployment
+require separately configured services; this hosting change does not implement
+them. Existing public simulator endpoints are not a production multi-tenant API.
+
+Deployment regression checks:
+
+```bash
+pnpm check
+pnpm test --maxWorkers=1 --minWorkers=1
+pnpm build
+python -m pytest tests/test_serverless.py -q
+```
+
+See [Vercel function configuration](https://vercel.com/docs/project-configuration/vercel-json)
+and [Python runtime dependency configuration](https://vercel.com/docs/functions/runtimes/python).
+
 Fraud Sentinel is an operational dashboard for real-time payment fraud detection and MLOps observability. It presents a seeded 2,000-record synthetic transaction stream, model risk decisions, pipeline health, drift signals, model registry metadata, alert management, and audit events through a single full-stack WebDev project.
 
 > The transaction dataset is synthetic. It is designed to exercise the product workflow and must not be presented as real banking data.

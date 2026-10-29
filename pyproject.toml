@@ -1,0 +1,11 @@
+[project]
+name = "fraud-sentinel-api"
+version = "1.0.0"
+requires-python = ">=3.12,<3.13"
+# Vercel only needs the web runtime to serve Swagger and health. Install the
+# existing requirements.txt for local training and artifact-backed inference.
+dependencies = [
+  "fastapi==0.115.6",
+  "pydantic-settings==2.7.1",
+  "prometheus-client==0.21.1",
+]

@@ -26,22 +26,6 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = createApp();
   const server = createServer(app);
-  const clientOrigin = process.env.CLIENT_ORIGIN;
-  if (clientOrigin) {
-    app.use((req, res, next) => {
-      if (req.headers.origin === clientOrigin) {
-        res.setHeader("Access-Control-Allow-Origin", clientOrigin);
-        res.setHeader("Access-Control-Allow-Credentials", "true");
-        res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-        res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-      }
-      if (req.method === "OPTIONS") {
-        res.sendStatus(204);
-        return;
-      }
-      next();
-    });
-  }
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

@@ -1,20 +1,24 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "buildCommand": "pnpm build",
+  "framework": "vite",
+  "buildCommand": "pnpm exec vite build",
+  "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist/public",
   "rewrites": [
-    { "source": "/fastapi/docs", "destination": "/api/fastapi.py/docs" },
-    { "source": "/fastapi/openapi.json", "destination": "/api/fastapi.py/openapi.json" },
-    { "source": "/fastapi/(.*)", "destination": "/api/fastapi.py" },
-    { "source": "/api/(.*)", "destination": "/api/index.ts" },
+    { "source": "/fastapi/:path*", "destination": "/api/fastapi" },
+    { "source": "/api/fastapi/:path*", "destination": "/api/fastapi" },
+    { "source": "/api/:path*", "destination": "/api/index" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "functions": {
     "api/fastapi.py": {
-      "runtime": "python3.11"
+      "maxDuration": 30,
+      "excludeFiles": "{node_modules/**,client/**,server/**,dist/**,datasets/**,data/**,tests/**,.git/**,.env*,.venv/**,.npm/**,tmp/**,outputs/**,monitoring/**,mlops/**}"
     },
     "api/index.ts": {
-      "runtime": "nodejs20.x"
+      "maxDuration": 30,
+      "includeFiles": "{datasets/**,data/reputation/**}"
     }
   }
 }
