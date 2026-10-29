@@ -5,10 +5,11 @@
   "buildCommand": "pnpm exec vite build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist/public",
-  "rewrites": [
-    { "source": "/fastapi/:path*", "destination": "/api/fastapi" },
-    { "source": "/api/fastapi/:path*", "destination": "/api/fastapi" },
-    { "source": "/(.*)", "destination": "/index.html" }
+  "routes": [
+    { "src": "/fastapi/(.*)", "dest": "/api/fastapi.py" },
+    { "src": "/api/(.*)", "dest": "/api/index.ts" },
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ],
   "functions": {
     "api/fastapi.py": {
