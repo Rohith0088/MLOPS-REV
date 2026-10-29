@@ -159,27 +159,37 @@ export async function saveEmailScan(result: EmailAnalysis, userId?: string | nul
 export async function listUrlScans(limit = 10) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({
-    id: urlScans.id,
-    url: urlScans.url,
-    hostname: urlScans.hostname,
-    verdict: urlScans.verdict,
-    riskScore: urlScans.riskScore,
-    confidence: urlScans.confidence,
-    createdAt: urlScans.createdAt,
-  }).from(urlScans).orderBy(desc(urlScans.createdAt)).limit(limit);
+  try {
+    return await db.select({
+      id: urlScans.id,
+      url: urlScans.url,
+      hostname: urlScans.hostname,
+      verdict: urlScans.verdict,
+      riskScore: urlScans.riskScore,
+      confidence: urlScans.confidence,
+      createdAt: urlScans.createdAt,
+    }).from(urlScans).orderBy(desc(urlScans.createdAt)).limit(limit);
+  } catch (error) {
+    console.warn("[Database] Failed to list URL scans:", error);
+    return [];
+  }
 }
 
 export async function listEmailScans(limit = 10) {
   const db = await getDb();
   if (!db) return [];
-  return db.select({
-    id: emailScans.id,
-    sender: emailScans.sender,
-    senderDomain: emailScans.senderDomain,
-    verdict: emailScans.verdict,
-    riskScore: emailScans.riskScore,
-    confidence: emailScans.confidence,
-    createdAt: emailScans.createdAt,
-  }).from(emailScans).orderBy(desc(emailScans.createdAt)).limit(limit);
+  try {
+    return await db.select({
+      id: emailScans.id,
+      sender: emailScans.sender,
+      senderDomain: emailScans.senderDomain,
+      verdict: emailScans.verdict,
+      riskScore: emailScans.riskScore,
+      confidence: emailScans.confidence,
+      createdAt: emailScans.createdAt,
+    }).from(emailScans).orderBy(desc(emailScans.createdAt)).limit(limit);
+  } catch (error) {
+    console.warn("[Database] Failed to list email scans:", error);
+    return [];
+  }
 }
