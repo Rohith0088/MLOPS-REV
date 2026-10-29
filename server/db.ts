@@ -156,7 +156,7 @@ export async function saveEmailScan(result: EmailAnalysis, userId?: string | nul
   });
 }
 
-export async function listUrlScans(userId: string, limit = 10) {
+export async function listUrlScans(limit = 10) {
   const db = await getDb();
   if (!db) return [];
   return db.select({
@@ -167,10 +167,10 @@ export async function listUrlScans(userId: string, limit = 10) {
     riskScore: urlScans.riskScore,
     confidence: urlScans.confidence,
     createdAt: urlScans.createdAt,
-  }).from(urlScans).where(eq(urlScans.userId, userId)).orderBy(desc(urlScans.createdAt)).limit(limit);
+  }).from(urlScans).orderBy(desc(urlScans.createdAt)).limit(limit);
 }
 
-export async function listEmailScans(userId: string, limit = 10) {
+export async function listEmailScans(limit = 10) {
   const db = await getDb();
   if (!db) return [];
   return db.select({
@@ -181,5 +181,5 @@ export async function listEmailScans(userId: string, limit = 10) {
     riskScore: emailScans.riskScore,
     confidence: emailScans.confidence,
     createdAt: emailScans.createdAt,
-  }).from(emailScans).where(eq(emailScans.userId, userId)).orderBy(desc(emailScans.createdAt)).limit(limit);
+  }).from(emailScans).orderBy(desc(emailScans.createdAt)).limit(limit);
 }

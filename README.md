@@ -22,15 +22,14 @@ for each deployment environment, then redeploy:
   strong `JWT_SECRET` only if using that authentication provider.
 
 `.env` is ignored by Git and by Vercel CLI uploads. Do not commit credentials or
-paste them into build commands. Register the deployed origin and required
-redirect URLs in Supabase Auth before testing email confirmation and sign-in.
+paste them into build commands. Supabase Auth is not required for the current anonymous deployment.
 
 Verify these paths on the actual deployment:
 
-- `/` and `/login`: frontend, including direct navigation and reload.
+- `/`: frontend, including direct navigation and reload.
 - `/api/trpc/health`: JSON health response; check `database` rather than assuming
   a successful HTTP response means PostgreSQL is connected.
-- `/api/trpc/linkDetection.history`: an anonymous request must return HTTP 401.
+- `/api/trpc/linkDetection.history`: an anonymous request returns recent scan history.
 - `/fastapi/docs`: Swagger UI, loading `/fastapi/openapi.json` successfully.
 - `/fastapi/health`: reports the actual Python model status.
 
@@ -140,22 +139,14 @@ empty for the default same-origin setup. See [.env.example](./.env.example).
 
 ### Authentication
 
-The application uses the existing OAuth provider rather than collecting passwords
-in the frontend. The callback validates a one-time state nonce, exchanges the
-authorization code server-side, synchronizes the user record, and issues an
-HTTP-only signed session cookie. Dashboard routes are protected in the frontend
-for user experience, while the backend session is the source of truth.
+The current deployment intentionally does not require login. The login screen is
+not part of the application route flow, and link/email analysis plus recent scan
+history are available anonymously. This is appropriate for a demonstration
+deployment only: do not use it for private or multi-tenant data.
 
-Copy `.env.example` to `.env` and configure `OAUTH_SERVER_URL`, `JWT_SECRET`,
-`VITE_OAUTH_PORTAL_URL`, and `VITE_APP_ID` to enable the sign-in and workspace
-access actions. Password recovery remains managed by the configured identity
-provider; the login screen does not claim to send a local reset email.
-
-For a local product demonstration before OAuth is configured, start the server
-with `DEMO_AUTH_ENABLED=true`. The preview login then exposes the clearly labeled
-demo account `demo@fraudsentinel.local` / `SentinelDemo123!`. Demo sessions are
-short-lived and use the same signed session validation path, but demo mode is
-not production authentication and must remain disabled in deployed environments.
+The OAuth and Supabase integration remains in the codebase for a future
+authenticated deployment. Re-enable the frontend route gate and protected scan
+procedures together before using this application with private data.
 
 ## Testing
 
@@ -167,7 +158,14 @@ Operational dashboard state is currently process-local and resets when the serve
 
 The health endpoint performs a real `SELECT 1` connectivity check and reports `unconfigured` or `unavailable` when it cannot verify the database; it never reports a static database success.
 
-The Link Detection and Email Detection pages use authenticated tRPC procedures. Each completed analysis is stored with the signed-in user's `openId`, and each page displays only that user's recent scan history. The `scan_jobs`, `email_connections`, `security_events`, `model_predictions`, `model_versions`, and `user_feedback` tables are schema foundations for queued processing, provider integrations, auditability, model governance, and feedback workflows; they are not presented as active integrations until their corresponding services are implemented.
+The Link Detection and Email Detection pages use public tRPC procedures in the
+current anonymous deployment. Each completed analysis is stored in PostgreSQL
+without a user owner, and recent history is shared across anonymous visitors.
+The `scan_jobs`, `email_connections`, `security_events`, `model_predictions`,
+`model_versions`, and `user_feedback` tables are schema foundations for queued
+processing, provider integrations, auditability, model governance, and feedback
+workflows; they are not presented as active integrations until their
+corresponding services are implemented.
 
 The frontend uses polling through tRPC for live refreshes. The original WebSocket contract is represented by the pipeline procedures and can be upgraded to a server-sent or WebSocket transport without changing page contracts.
 

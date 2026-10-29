@@ -5,6 +5,8 @@ import { createApp } from "./_core/app";
 
 vi.mock("./db", () => ({
   checkDatabaseConnection: async () => ({ status: "unconfigured" }),
+  listEmailScans: async () => [],
+  listUrlScans: async () => [],
 }));
 
 describe("shared serverless Express entry point", () => {
@@ -39,9 +41,9 @@ describe("shared serverless Express entry point", () => {
     });
     expect(response.headers.get("Access-Control-Allow-Origin")).toBeNull();
   });
-  it("rejects anonymous access to private scan history", async () => {
+  it("allows anonymous access to scan history", async () => {
     const response = await fetch(`${base}/api/trpc/linkDetection.history`);
-    expect(response.status).toBe(401);
+    expect(response.status).toBe(200);
   });
   it("returns JSON 404 for unknown API paths instead of the SPA", async () => {
     const response = await fetch(`${base}/api/unknown`);

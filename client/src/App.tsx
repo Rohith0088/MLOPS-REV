@@ -10,19 +10,8 @@ import { Alerts, Audit, Experiments, Models, Monitoring, Pipeline, Settings } fr
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Login from "./pages/Login";
-import { useAuth } from "./_core/hooks/useAuth";
-import { useLocation } from "wouter";
 
 function Router() {
-  const [location] = useLocation();
-  const { loading, isAuthenticated } = useAuth();
-  if (location === "/login") return <Login />;
-  if (loading) return <div className="grid min-h-screen place-items-center bg-[#05070d] text-sm text-slate-400">Checking secure session…</div>;
-  if (!isAuthenticated) {
-    window.history.replaceState({}, "", `/login?returnTo=${encodeURIComponent(location)}`);
-    return <Login />;
-  }
   return <DashboardLayout><Switch>
     <Route path="/" component={Home} />
     <Route path="/transactions" component={Transactions} />

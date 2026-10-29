@@ -4,7 +4,7 @@ import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router } from "./_core/trpc";
 import { addAudit, classify, getMetrics, getTransaction, models, monitoring, state, summary } from "./fraud-data";
 import { activeModelVersion, deployModel, mlopsHealth, mlopsStatus, rollbackModel, trainModel } from "./mlops";
 import { defaultDataset, listDatasets, predictWithDataset } from "./dataset-model";
@@ -67,25 +67,25 @@ export const appRouter = router({
     list: publicProcedure.query(() => listDatasets()),
   }),
   linkDetection: router({
-    history: protectedProcedure.query(({ ctx }) => listUrlScans(ctx.user.openId)),
-    analyze: protectedProcedure.input(z.object({ url: z.string().trim().min(1).max(2048) })).mutation(async ({ input, ctx }) => {
+    history: publicProcedure.query(() => listUrlScans()),
+    analyze: publicProcedure.input(z.object({ url: z.string().trim().min(1).max(2048) })).mutation(async ({ input }) => {
       const result = await analyzeLink(input.url);
-      await saveUrlScan(result, ctx.user?.openId);
+      await saveUrlScan(result);
       return result;
     }),
   }),
   emailDetection: router({
-    history: protectedProcedure.query(({ ctx }) => listEmailScans(ctx.user.openId)),
-    analyze: protectedProcedure.input(z.object({
+    history: publicProcedure.query(() => listEmailScans()),
+    analyze: publicProcedure.input(z.object({
       sender: z.string().trim().min(1).max(320),
       subject: z.string().max(300),
       content: z.string().max(20000),
       replyTo: z.string().email().max(320).optional(),
       headers: z.string().max(30000).optional(),
       attachments: z.array(z.string().max(255)).max(20).optional(),
-    })).mutation(async ({ input, ctx }) => {
+    })).mutation(async ({ input }) => {
       const result = await analyzeEmail(input.sender, input.subject, input.content, input);
-      await saveEmailScan(result, ctx.user?.openId);
+      await saveEmailScan(result);
       return result;
     }),
   }),

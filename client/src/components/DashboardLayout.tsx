@@ -1,7 +1,6 @@
 import { useLocation } from "wouter";
-import { Activity, Bell, Boxes, ChevronDown, CircleCheck, CircleUserRound, CreditCard, Database, FlaskConical, LayoutDashboard, Link2, MailCheck, LogOut, Menu, Network, ScrollText, Settings, ShieldCheck, Workflow, X, Zap } from "lucide-react";
+import { Activity, Bell, Boxes, CreditCard, Database, FlaskConical, LayoutDashboard, Link2, MailCheck, Menu, Network, ScrollText, Settings, ShieldCheck, Workflow, X, Zap } from "lucide-react";
 import { useState } from "react";
-import { useAuth } from "../_core/hooks/useAuth";
 
 const navGroups = [
   { label: "OPERATIONS", items: [
@@ -26,7 +25,6 @@ const navGroups = [
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { user, logout } = useAuth();
   const activeLabel = navGroups.flatMap((group) => group.items).find((item) => item.path === location)?.label ?? "Overview";
   return (
     <div className="min-h-screen bg-[#05070d] text-slate-100">
@@ -43,7 +41,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
         <div className="border-t border-white/10 p-3">
           <div className="mb-3 rounded-lg bg-white/[0.03] p-3 ring-1 ring-white/5"><div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-slate-300"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.12)]" /> All systems operational</div><div className="flex items-center justify-between text-[10px] text-slate-500"><span>Current model</span><span className="font-mono text-slate-300">v1.2.0</span></div></div>
-          <button onClick={() => void logout()} className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-slate-400 hover:bg-white/[0.04]"><span className="grid h-8 w-8 place-items-center rounded-full bg-slate-700 text-slate-200"><CircleUserRound size={16} /></span><span className="flex-1"><span className="block text-xs font-medium text-slate-200">{user?.name || user?.email || "Signed-in user"}</span><span className="block text-[10px] text-slate-500">Sign out</span></span><LogOut size={14} /></button>
+          <div className="flex items-center gap-3 rounded-md px-2 py-2 text-slate-400"><span className="grid h-8 w-8 place-items-center rounded-full bg-slate-700 text-slate-200">A</span><span className="flex-1"><span className="block text-xs font-medium text-slate-200">Anonymous access</span><span className="block text-[10px] text-slate-500">Login not required</span></span></div>
         </div>
       </aside>
       {mobileOpen && <button aria-label="Close navigation" className="fixed inset-0 z-40 bg-slate-950/40 lg:hidden" onClick={() => setMobileOpen(false)} />}
