@@ -18,7 +18,7 @@ services:
       - key: DEMO_AUTH_ENABLED
         value: "false"
 
-  - type: static_site
+  - type: web
     name: fraud-sentinel-frontend
     runtime: static
     plan: free
