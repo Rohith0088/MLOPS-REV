@@ -1,3 +1,4 @@
+import dns from "node:dns/promises";
 import { getDomainRecord } from "./reputation-data";
 import { analyzeLink, type LinkAnalysis } from "./link-detector";
 
@@ -22,6 +23,11 @@ export type EmailAnalysis = {
   recommendation: string;
   links: LinkAnalysis[];
   missingEvidence: string[];
+  domainChecks: {
+    mx: "PASS" | "FAIL" | "INCONCLUSIVE";
+    spf: "PASS" | "FAIL" | "INCONCLUSIVE";
+    dmarc: "PASS" | "FAIL" | "INCONCLUSIVE";
+  };
   disclaimer: string;
 };
 
@@ -40,9 +46,59 @@ const credentialPattern = /password|otp|one[- ]time password|verification code|l
 const hiringPattern = /hired|job offer|selected|joining|interview|recruit|salary|employment|offer letter/i;
 const shortenerPattern = /(?:https?:\/\/)?(?:bit\.ly|tinyurl\.com|t\.co|cutt\.ly|rb\.gy)\b/i;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i;
+const dnsTimeoutMs = 2500;
 
 function addSignal(signals: EmailSignal[], label: string, detail: string, tone: EmailSignal["tone"]) {
   signals.push({ label, detail, tone });
+}
+
+async function withDnsTimeout<T>(operation: Promise<T>): Promise<T> {
+  return Promise.race([
+    operation,
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error("DNS lookup timeout")), dnsTimeoutMs)),
+  ]);
+}
+
+async function checkEmailDomain(domain: string) {
+  const checks = {
+    mx: "INCONCLUSIVE" as "PASS" | "FAIL" | "INCONCLUSIVE",
+    spf: "INCONCLUSIVE" as "PASS" | "FAIL" | "INCONCLUSIVE",
+    dmarc: "INCONCLUSIVE" as "PASS" | "FAIL" | "INCONCLUSIVE",
+  };
+  try {
+    checks.mx = (await withDnsTimeout(dns.resolveMx(domain))).length ? "PASS" : "FAIL";
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+    checks.mx = code === "ENODATA" || code === "ENOTFOUND" ? "FAIL" : "INCONCLUSIVE";
+  }
+  try {
+    const records = await withDnsTimeout(dns.resolveTxt(domain));
+    checks.spf = records.some(record => record.join("").toLowerCase().startsWith("v=spf1")) ? "PASS" : "FAIL";
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+    checks.spf = code === "ENODATA" || code === "ENOTFOUND" ? "FAIL" : "INCONCLUSIVE";
+  }
+  try {
+    const records = await withDnsTimeout(dns.resolveTxt(`_dmarc.${domain}`));
+    checks.dmarc = records.some(record => record.join("").toLowerCase().startsWith("v=dmarc1")) ? "PASS" : "FAIL";
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
+    checks.dmarc = code === "ENODATA" || code === "ENOTFOUND" ? "FAIL" : "INCONCLUSIVE";
+  }
+  return checks;
+}
+
+function addDomainCheckSignals(signals: EmailSignal[], checks: Awaited<ReturnType<typeof checkEmailDomain>>) {
+  const checksToReport = [
+    ["MX record", checks.mx, "A receiving mail server is published for this domain.", "No receiving mail server was found for this domain."],
+    ["SPF policy", checks.spf, "The domain publishes an SPF policy.", "The domain does not publish an SPF policy."],
+    ["DMARC policy", checks.dmarc, "The domain publishes a DMARC policy.", "The domain does not publish a DMARC policy."],
+  ] as const;
+  for (const [label, status, passDetail, failDetail] of checksToReport) {
+    if (status === "PASS") addSignal(signals, `Live ${label} check`, passDetail, "positive");
+    else if (status === "FAIL") addSignal(signals, `Live ${label} check`, failDetail, label === "MX record" ? "danger" : "warning");
+    else addSignal(signals, `Live ${label} check`, "The DNS provider did not return a definitive result within the safety timeout.", "warning");
+  }
 }
 
 export async function analyzeEmail(senderInput: string, subject: string, content: string, options?: { replyTo?: string; headers?: string; attachments?: string[] }): Promise<EmailAnalysis> {
@@ -65,6 +121,7 @@ export async function analyzeEmail(senderInput: string, subject: string, content
       recommendation: "Do not reply or open attachments. Confirm the sender through an official website.",
       links: [],
       missingEvidence: ["A valid sender address is required for domain assessment."],
+      domainChecks: { mx: "INCONCLUSIVE", spf: "INCONCLUSIVE", dmarc: "INCONCLUSIVE" },
       disclaimer: "This is a pattern-based demonstration and does not contact the sender or verify mailbox ownership.",
     };
   }
@@ -75,6 +132,11 @@ export async function analyzeEmail(senderInput: string, subject: string, content
   const senderAlias = sender.split("@")[0];
   const mentionedOrganization = ["Infosys", "Google", "Microsoft", "Amazon", "Apple", "Accenture"].find(name => new RegExp(`\\b${name}\\b`, "i").test(`${senderAlias} ${combined}`));
   let riskScore = 0;
+  const domainChecks = await checkEmailDomain(senderDomain);
+  addDomainCheckSignals(signals, domainChecks);
+  if (domainChecks.mx === "FAIL") riskScore += 25;
+  if (domainChecks.spf === "FAIL") riskScore += 8;
+  if (domainChecks.dmarc === "FAIL") riskScore += 8;
 
   if (organizationEntry) {
     addSignal(signals, "Organization domain matched", `${organizationEntry[0]} uses ${senderDomain} in this demo directory.`, "positive");
@@ -127,6 +189,17 @@ export async function analyzeEmail(senderInput: string, subject: string, content
     riskScore += 25;
     addSignal(signals, "Reply-To mismatch", "Replies would be directed to an address different from the displayed sender.", "danger");
   }
+  if (options?.headers) {
+    const normalizedHeaders = options.headers.toLowerCase();
+    const authFailures = ["spf=fail", "dkim=fail", "dmarc=fail", "dmarc=none"].filter(value => normalizedHeaders.includes(value));
+    const authPasses = ["spf=pass", "dkim=pass", "dmarc=pass"].filter(value => normalizedHeaders.includes(value));
+    if (authFailures.length) {
+      riskScore += Math.min(35, authFailures.length * 12);
+      addSignal(signals, "Authentication header failure", `${authFailures.join(", ")} was found in the supplied headers.`, "danger");
+    } else if (authPasses.length) {
+      addSignal(signals, "Authentication header result", `${authPasses.join(", ")} was found in the supplied headers; verify the headers came from the receiving mail system.`, "positive");
+    }
+  }
   if (options?.attachments?.length) {
     const riskyAttachment = options.attachments.some(name => /\.(exe|scr|js|vbs|bat|cmd|ps1|iso|zip)$/i.test(name));
     if (riskyAttachment) {
@@ -176,6 +249,7 @@ export async function analyzeEmail(senderInput: string, subject: string, content
     recommendation,
     links,
     missingEvidence,
-    disclaimer: "This is a pattern-based demonstration and does not contact the sender or verify mailbox ownership.",
+    domainChecks,
+    disclaimer: "This is a live DNS and content assessment. It does not verify mailbox ownership, prove that a sender controlled the message, or replace checks performed by the receiving mail provider.",
   };
 }

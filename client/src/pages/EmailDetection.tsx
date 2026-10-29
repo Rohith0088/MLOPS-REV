@@ -26,8 +26,10 @@ export default function EmailDetection() {
   const [content, setContent] = useState("");
   const [headers, setHeaders] = useState("");
   const analysis = trpc.emailDetection.analyze.useMutation();
+  const history = trpc.emailDetection.history.useQuery();
+  const utils = trpc.useUtils();
 
-  const runAnalysis = () => analysis.mutate({ sender, subject, content, replyTo: replyTo || undefined, headers: headers || undefined });
+  const runAnalysis = () => analysis.mutate({ sender, subject, content, replyTo: replyTo || undefined, headers: headers || undefined }, { onSuccess: () => void utils.emailDetection.history.invalidate() });
   const applyExample = (example: (typeof examples)[number]) => {
     setSender(example.sender);
     setSubject(example.subject);
@@ -41,7 +43,7 @@ export default function EmailDetection() {
         eyebrow="EMAIL INTELLIGENCE"
         title="Verify a suspicious email"
         description="Check the sender pattern and message content before trusting an offer or request."
-        action={<div className="flex items-center gap-2 text-[11px] text-slate-400"><ShieldCheck size={14} className="text-emerald-400" /> Pattern-based review</div>}
+        action={<div className="flex items-center gap-2 text-[11px] text-slate-400"><ShieldCheck size={14} className="text-emerald-400" /> Live DNS and content checks</div>}
       />
 
       <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
@@ -50,7 +52,7 @@ export default function EmailDetection() {
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-blue-500/10 text-blue-300 ring-1 ring-blue-400/20"><MailCheck size={19} /></span>
             <div>
               <h3 className="text-sm font-semibold text-white">Email risk scanner</h3>
-              <p className="mt-1 text-[11px] leading-5 text-slate-400">We compare the sender domain with known organization patterns and inspect the message for common fraud signals.</p>
+              <p className="mt-1 text-[11px] leading-5 text-slate-400">We perform live MX, SPF, and DMARC DNS checks, inspect message signals, and scan embedded links without opening them.</p>
             </div>
           </div>
 
@@ -85,6 +87,10 @@ export default function EmailDetection() {
         <div className="panel min-h-[460px] p-5 sm:p-6">
           {!analysis.data ? <EmptyResult /> : <EmailResult result={analysis.data} />}
         </div>
+      </div>
+      <div className="panel mt-6 p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between"><div><h3 className="text-sm font-semibold text-white">Recent email scans</h3><p className="mt-1 text-[11px] text-slate-500">Saved results for your signed-in account.</p></div><span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{history.data?.length ?? 0} records</span></div>
+        {history.isLoading ? <p className="text-xs text-slate-500">Loading scan history...</p> : history.error ? <p role="alert" className="text-xs text-rose-300">{history.error.message}</p> : history.data?.length ? <div className="space-y-2">{history.data.map(scan => <div key={scan.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs"><div className="min-w-0"><div className="truncate font-mono text-slate-300">{scan.sender}</div><div className="text-[10px] text-slate-500">{new Date(scan.createdAt).toLocaleString()}</div></div><div className="flex items-center gap-3"><span className="text-slate-400">Score {scan.riskScore}</span><span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-slate-300">{scan.verdict.replaceAll("_", " ")}</span></div></div>)}</div> : <p className="text-xs text-slate-500">No saved email scans yet.</p>}
       </div>
     </div>
   );

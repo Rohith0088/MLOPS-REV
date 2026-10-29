@@ -1,21 +1,57 @@
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { desc, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
+import { emailScans, InsertUser, users, urlScans } from "../drizzle/schema";
+import type { EmailAnalysis } from "./email-detector";
+import type { LinkAnalysis } from "./link-detector";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
+let _client: ReturnType<typeof postgres> | null = null;
+
+function hasUsableDatabaseUrl(value: string | undefined): value is string {
+  return Boolean(value && !value.includes("[") && !value.includes("]") && !value.includes("<") && !value.includes(">"));
+}
 
 // Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db && hasUsableDatabaseUrl(process.env.DATABASE_URL)) {
     try {
-      _db = drizzle(process.env.DATABASE_URL);
+      _client = postgres(process.env.DATABASE_URL, {
+        max: 5,
+        prepare: false,
+      });
+      _db = drizzle(_client);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
+      _client = null;
       _db = null;
     }
   }
   return _db;
+}
+
+export type DatabaseHealth = {
+  status: "connected" | "unconfigured" | "unavailable";
+};
+
+export async function checkDatabaseConnection(): Promise<DatabaseHealth> {
+  if (!hasUsableDatabaseUrl(process.env.DATABASE_URL)) {
+    return { status: "unconfigured" };
+  }
+
+  try {
+    await getDb();
+    if (!_client) {
+      return { status: "unavailable" };
+    }
+
+    await _client`select 1`;
+    return { status: "connected" };
+  } catch (error) {
+    console.warn("[Database] Connectivity check failed:", error instanceof Error ? error.message : error);
+    return { status: "unavailable" };
+  }
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -33,7 +69,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     const values: InsertUser = {
       openId: user.openId,
     };
-    const updateSet: Record<string, unknown> = {};
+    const updateSet: Partial<InsertUser> = {};
 
     const textFields = ["name", "email", "loginMethod"] as const;
     type TextField = (typeof textFields)[number];
@@ -68,7 +104,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(values).onConflictDoUpdate({
+      target: users.openId,
       set: updateSet,
     });
   } catch (error) {
@@ -89,4 +126,60 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function saveUrlScan(result: LinkAnalysis, userId?: string | null) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.insert(urlScans).values({
+    userId: userId ?? null,
+    url: result.normalizedUrl,
+    hostname: result.hostname,
+    verdict: result.verdict,
+    riskScore: result.riskScore,
+    confidence: result.confidence,
+    result,
+  });
+}
+
+export async function saveEmailScan(result: EmailAnalysis, userId?: string | null) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.insert(emailScans).values({
+    userId: userId ?? null,
+    sender: result.sender,
+    senderDomain: result.senderDomain,
+    verdict: result.verdict,
+    riskScore: result.riskScore,
+    confidence: result.confidence,
+    result,
+  });
+}
+
+export async function listUrlScans(userId: string, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: urlScans.id,
+    url: urlScans.url,
+    hostname: urlScans.hostname,
+    verdict: urlScans.verdict,
+    riskScore: urlScans.riskScore,
+    confidence: urlScans.confidence,
+    createdAt: urlScans.createdAt,
+  }).from(urlScans).where(eq(urlScans.userId, userId)).orderBy(desc(urlScans.createdAt)).limit(limit);
+}
+
+export async function listEmailScans(userId: string, limit = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: emailScans.id,
+    sender: emailScans.sender,
+    senderDomain: emailScans.senderDomain,
+    verdict: emailScans.verdict,
+    riskScore: emailScans.riskScore,
+    confidence: emailScans.confidence,
+    createdAt: emailScans.createdAt,
+  }).from(emailScans).where(eq(emailScans.userId, userId)).orderBy(desc(emailScans.createdAt)).limit(limit);
+}

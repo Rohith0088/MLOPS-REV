@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { ShieldCheck, ArrowRight, Check, LockKeyhole, Mail, RotateCcw } from "lucide-react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { COOKIE_NAME, startLogin } from "@/const";
 import { trpc } from "@/lib/trpc";
+import { supabase, supabaseAuthConfigured } from "@/lib/supabase";
 import { TRPCClientError } from "@trpc/client";
 
 const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL as string | undefined;
@@ -17,6 +18,12 @@ export default function Login() {
   const [demoEmail, setDemoEmail] = useState("");
   const [demoPassword, setDemoPassword] = useState("");
   const [demoError, setDemoError] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [supabaseError, setSupabaseError] = useState("");
+  const [supabasePending, setSupabasePending] = useState(false);
+  const [authMode, setAuthMode] = useState<"signIn" | "signUp">("signIn");
+  const [confirmationSent, setConfirmationSent] = useState(false);
   const demoConfig = trpc.auth.demoConfig.useQuery();
   const utils = trpc.useUtils();
   const demoSignIn = trpc.auth.demoSignIn.useMutation({
@@ -43,6 +50,55 @@ export default function Login() {
     if (oauthPortalUrl) {
       startLogin();
     }
+  };
+
+  const signInWithSupabase = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setSupabaseError("");
+    setSupabasePending(true);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setSupabasePending(false);
+    if (error) {
+      setSupabaseError(error.message.toLowerCase().includes("confirm")
+        ? "Confirm your email address before signing in."
+        : error.message);
+      return;
+    }
+    setLocation("/");
+  };
+
+  const signUpWithSupabase = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!supabase) return;
+    setSupabaseError("");
+    setSupabasePending(true);
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: window.location.origin },
+    });
+    setSupabasePending(false);
+    if (error) {
+      setSupabaseError(error.message);
+      return;
+    }
+    if (data.session) {
+      setLocation("/");
+      return;
+    }
+    setSupabaseError("Account created. Check your email to confirm your account, then sign in.");
+    setConfirmationSent(true);
+    setAuthMode("signIn");
+  };
+
+  const resendConfirmation = async () => {
+    if (!supabase || !email) return;
+    setSupabasePending(true);
+    setSupabaseError("");
+    const { error } = await supabase.auth.resend({ type: "signup", email });
+    setSupabasePending(false);
+    setSupabaseError(error ? error.message : "Confirmation email sent. Check your inbox and spam folder.");
   };
 
   return (
@@ -87,6 +143,14 @@ export default function Login() {
               <button type="button" onClick={beginOAuth} disabled={!oauthPortalUrl} className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-blue-500 px-4 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 hover:bg-blue-400 disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400">
                 {oauthPortalUrl ? <>Continue with secure sign-in <ArrowRight size={17} /></> : "Secure sign-in is not configured"}
               </button>
+              {supabaseAuthConfigured && <form onSubmit={authMode === "signIn" ? signInWithSupabase : signUpWithSupabase} className="mt-6 space-y-3 border-t border-white/10 pt-6">
+                <div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{authMode === "signIn" ? "Sign in" : "Create account"}</p><button type="button" onClick={() => { setAuthMode(authMode === "signIn" ? "signUp" : "signIn"); setSupabaseError(""); setConfirmationSent(false); }} className="text-xs text-blue-300 hover:text-blue-200">{authMode === "signIn" ? "Create an account" : "Already have an account?"}</button></div>
+                <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-300">Email</span><input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/20" /></label>
+                <label className="block"><span className="mb-1.5 block text-xs font-medium text-slate-300">Password</span><input type="password" autoComplete={authMode === "signIn" ? "current-password" : "new-password"} minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} className="h-10 w-full rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-white outline-none focus:border-blue-300/60 focus:ring-2 focus:ring-blue-500/20" /></label>
+                {supabaseError && <p role="alert" className="text-xs text-rose-300">{supabaseError}</p>}
+                {confirmationSent && <div className="rounded-lg border border-emerald-300/20 bg-emerald-300/10 p-3 text-xs leading-5 text-emerald-100"><p>We sent a confirmation link to your email.</p><button type="button" onClick={resendConfirmation} disabled={supabasePending} className="mt-1 font-semibold text-emerald-200 underline">Resend confirmation email</button></div>}
+                <button type="submit" disabled={supabasePending} className="h-10 w-full rounded-lg border border-blue-300/30 bg-blue-300/10 text-sm font-semibold text-blue-100 hover:bg-blue-300/20 disabled:opacity-60">{supabasePending ? (authMode === "signIn" ? "Signing in…" : "Creating account…") : authMode === "signIn" ? "Sign in" : "Create account"}</button>
+              </form>}
               {demoConfig.data?.enabled && <div className="mt-6 rounded-xl border border-amber-300/20 bg-amber-400/[0.06] p-4">
                 <div className="mb-3 flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-200">Demo mode</p><span className="rounded-full bg-amber-300/10 px-2 py-1 text-[10px] text-amber-200">Not production auth</span></div>
                 <p className="mb-4 text-xs leading-5 text-amber-100/70">Use the temporary local account to preview the dashboard while OAuth is being configured.</p>

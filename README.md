@@ -16,7 +16,7 @@ The project uses the supported Manus WebDev full-stack template:
 
 - React 19, TypeScript, Vite, Tailwind CSS 4, Wouter, and Recharts for the client.
 - Express and tRPC 11 for typed server procedures.
-- Drizzle/MySQL support supplied by the scaffold for future durable persistence and authenticated user records.
+- Drizzle/PostgreSQL support for future durable persistence and authenticated user records. Supabase pooled PostgreSQL connections are supported through `DATABASE_URL`.
 - A deterministic TypeScript data layer in `server/fraud-data.ts` for the initial synthetic dataset and operational state. This keeps the preview self-contained and responsive while preserving clear seams for database-backed queries.
 
 The original brief requested FastAPI and PostgreSQL. This implementation uses the platform-supported server and database runtime instead so it can run in the attached WebDev environment without a second process or external database service. The server procedures retain the same product boundaries: transactions, predictions, pipeline control, monitoring, models, alerts, experiments, audit, settings, and health.
@@ -103,7 +103,11 @@ The test suite covers the scaffold authentication contract plus synthetic data p
 
 ## Runtime limitations
 
-Operational state is currently process-local and resets when the server restarts. The scaffold includes Drizzle/MySQL support, but the feature tables and durable seeding workflow from the larger FastAPI/PostgreSQL brief are not wired into this preview build. The current separation in `server/fraud-data.ts` and `server/routers.ts` is intentional: it provides a compact replacement point for durable transaction, prediction, alert, metric, and audit repositories.
+Operational dashboard state is currently process-local and resets when the server restarts. URL and email detector results now have PostgreSQL persistence through the `url_scans` and `email_scans` tables, with the remaining job, security-event, model, feedback, and email-connection tables defined in the Drizzle migration. Apply the migration only after configuring a verified Supabase pooled `DATABASE_URL` with `pnpm db:push`.
+
+The health endpoint performs a real `SELECT 1` connectivity check and reports `unconfigured` or `unavailable` when it cannot verify the database; it never reports a static database success.
+
+The Link Detection and Email Detection pages use authenticated tRPC procedures. Each completed analysis is stored with the signed-in user's `openId`, and each page displays only that user's recent scan history. The `scan_jobs`, `email_connections`, `security_events`, `model_predictions`, `model_versions`, and `user_feedback` tables are schema foundations for queued processing, provider integrations, auditability, model governance, and feedback workflows; they are not presented as active integrations until their corresponding services are implemented.
 
 The frontend uses polling through tRPC for live refreshes. The original WebSocket contract is represented by the pipeline procedures and can be upgraded to a server-sent or WebSocket transport without changing page contracts.
 

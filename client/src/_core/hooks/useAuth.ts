@@ -1,7 +1,8 @@
 import { startLogin } from "@/const";
+import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { TRPCClientError } from "@trpc/client";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type UseAuthOptions = {
   redirectOnUnauthenticated?: boolean;
@@ -15,11 +16,27 @@ export function useAuth(options?: UseAuthOptions) {
   // desync it from an in-flight login's `state`.
   const { redirectOnUnauthenticated = false, redirectPath } = options ?? {};
   const utils = trpc.useUtils();
+  const [supabaseUser, setSupabaseUser] = useState<Awaited<ReturnType<NonNullable<typeof supabase>["auth"]["getUser"]>>["data"]["user"]>(null);
 
   const meQuery = trpc.auth.me.useQuery(undefined, {
     retry: false,
     refetchOnWindowFocus: false,
   });
+
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (active) setSupabaseUser(data.user);
+    });
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSupabaseUser(session?.user ?? null);
+    });
+    return () => {
+      active = false;
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
 
   const logoutMutation = trpc.auth.logout.useMutation({
     onSuccess: () => {
@@ -30,6 +47,9 @@ export function useAuth(options?: UseAuthOptions) {
   const logout = useCallback(async () => {
     try {
       await logoutMutation.mutateAsync();
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
     } catch (error: unknown) {
       if (
         error instanceof TRPCClientError &&
@@ -59,12 +79,13 @@ export function useAuth(options?: UseAuthOptions) {
       user: meQuery.data ?? null,
       loading: meQuery.isLoading || logoutMutation.isPending,
       error: meQuery.error ?? logoutMutation.error ?? null,
-      isAuthenticated: Boolean(meQuery.data),
+      isAuthenticated: Boolean(meQuery.data || (supabaseUser?.email_confirmed_at && supabaseUser.email_confirmed_at.length > 0)),
     };
   }, [
     meQuery.data,
     meQuery.error,
     meQuery.isLoading,
+    supabaseUser,
     logoutMutation.error,
     logoutMutation.isPending,
   ]);

@@ -256,6 +256,12 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
+    const authHeader = req.headers.authorization;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      const supabaseUser = await this.authenticateSupabaseToken(authHeader.slice(7));
+      if (supabaseUser) return supabaseUser;
+    }
+
     // 1. Prefer the session cookie (regular OAuth login).
     const cookies = this.parseCookies(req.headers.cookie);
     let sessionToken = cookies.get(COOKIE_NAME);
@@ -264,7 +270,6 @@ class SDKServer {
     //    sessionStorage), used when the browser blocks iframe cookies such as
     //    Safari ITP, private browsing, or iOS/Android WebView.
     if (!sessionToken) {
-      const authHeader = req.headers.authorization;
       if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
         sessionToken = authHeader.slice(7);
       }
@@ -331,6 +336,47 @@ class SDKServer {
     });
 
     return user;
+  }
+
+  private async authenticateSupabaseToken(token: string): Promise<AuthenticatedUser | null> {
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+    if (!supabaseUrl || !supabaseKey) return null;
+
+    try {
+      const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+        headers: {
+          apikey: supabaseKey,
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) return null;
+
+      const userInfo = await response.json() as {
+        id?: string;
+        email?: string;
+        email_confirmed_at?: string | null;
+        user_metadata?: { name?: string; full_name?: string };
+      };
+      if (!userInfo.id || !userInfo.email || !userInfo.email_confirmed_at) {
+        throw ForbiddenError("A confirmed Supabase email is required");
+      }
+
+      await db.upsertUser({
+        openId: userInfo.id,
+        name: userInfo.user_metadata?.full_name ?? userInfo.user_metadata?.name ?? null,
+        email: userInfo.email,
+        loginMethod: "supabase",
+        lastSignedIn: new Date(),
+      });
+      const user = await db.getUserByOpenId(userInfo.id);
+      if (!user) throw ForbiddenError("Supabase user could not be synchronized");
+      return user;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("confirmed Supabase")) throw error;
+      console.warn("[Auth] Supabase token validation failed:", error instanceof Error ? error.message : error);
+      return null;
+    }
   }
 }
 

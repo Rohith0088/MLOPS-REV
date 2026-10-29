@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { checkDatabaseConnection, listEmailScans, listUrlScans, saveEmailScan, saveUrlScan } from "./db";
 import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { addAudit, classify, getMetrics, getTransaction, models, monitoring, state, summary } from "./fraud-data";
 import { activeModelVersion, deployModel, mlopsHealth, mlopsStatus, rollbackModel, trainModel } from "./mlops";
 import { defaultDataset, listDatasets, predictWithDataset } from "./dataset-model";
@@ -52,22 +53,41 @@ export const appRouter = router({
       return { success: true } as const;
     }),
   }),
-  health: publicProcedure.query(() => ({ api: "connected", database: "connected", model: "loaded", pipeline: state.pipeline.status.toLowerCase(), updatedAt: new Date().toISOString() })),
+  health: publicProcedure.query(async () => {
+    const database = await checkDatabaseConnection();
+    return {
+      api: "connected" as const,
+      database: database.status,
+      model: "loaded" as const,
+      pipeline: state.pipeline.status.toLowerCase(),
+      updatedAt: new Date().toISOString(),
+    };
+  }),
   datasets: router({
     list: publicProcedure.query(() => listDatasets()),
   }),
   linkDetection: router({
-    analyze: publicProcedure.input(z.object({ url: z.string().trim().min(1).max(2048) })).mutation(({ input }) => analyzeLink(input.url)),
+    history: protectedProcedure.query(({ ctx }) => listUrlScans(ctx.user.openId)),
+    analyze: protectedProcedure.input(z.object({ url: z.string().trim().min(1).max(2048) })).mutation(async ({ input, ctx }) => {
+      const result = await analyzeLink(input.url);
+      await saveUrlScan(result, ctx.user?.openId);
+      return result;
+    }),
   }),
   emailDetection: router({
-    analyze: publicProcedure.input(z.object({
+    history: protectedProcedure.query(({ ctx }) => listEmailScans(ctx.user.openId)),
+    analyze: protectedProcedure.input(z.object({
       sender: z.string().trim().min(1).max(320),
       subject: z.string().max(300),
       content: z.string().max(20000),
       replyTo: z.string().email().max(320).optional(),
       headers: z.string().max(30000).optional(),
       attachments: z.array(z.string().max(255)).max(20).optional(),
-    })).mutation(({ input }) => analyzeEmail(input.sender, input.subject, input.content, input)),
+    })).mutation(async ({ input, ctx }) => {
+      const result = await analyzeEmail(input.sender, input.subject, input.content, input);
+      await saveEmailScan(result, ctx.user?.openId);
+      return result;
+    }),
   }),
   mlops: router({
     status: publicProcedure.query(() => mlopsStatus()),

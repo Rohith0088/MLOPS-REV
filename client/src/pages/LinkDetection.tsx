@@ -9,8 +9,10 @@ const examples = ["https://www.example.com/account", "http://secure-login.exampl
 export default function LinkDetection() {
   const [url, setUrl] = useState("");
   const analysis = trpc.linkDetection.analyze.useMutation();
+  const history = trpc.linkDetection.history.useQuery();
+  const utils = trpc.useUtils();
   const result = analysis.data;
-  const run = () => analysis.mutate({ url: url.trim() });
+  const run = () => analysis.mutate({ url: url.trim() }, { onSuccess: () => void utils.linkDetection.history.invalidate() });
   const verdict = result?.verdict === "MALICIOUS" ? { title: "Do not trust this link", tone: "danger" as const, description: "Multiple indicators require treating this destination as potentially malicious." } : result?.verdict === "UNREACHABLE" ? { title: "The website could not be verified", tone: "warning" as const, description: "The domain could not be resolved or the website did not respond. This does not by itself prove malicious activity." } : result?.verdict === "NO_KNOWN_THREATS" ? { title: "No known threats detected", tone: "positive" as const, description: "The available checks found no strong risk indicators. This is not a guarantee that the website is legitimate." } : { title: "Review before proceeding", tone: "warning" as const, description: "Some checks are inconclusive or identified signals that deserve independent verification." };
 
   return <div className="mx-auto max-w-[1100px]">
@@ -33,6 +35,10 @@ export default function LinkDetection() {
           <details className="mt-4 text-[10px] text-slate-500"><summary className="cursor-pointer text-slate-400">Technical details</summary><div className="mt-2 space-y-1 font-mono"><div>Normalized URL: {result.normalizedUrl}</div><div>Resolved addresses: {result.resolvedAddresses.join(", ") || "none returned"}</div><div>{result.disclaimer}</div></div></details>
         </div>}
       </div>
+    </div>
+    <div className="panel mt-6 p-5 sm:p-6">
+      <div className="mb-4 flex items-center justify-between"><div><h3 className="text-sm font-semibold text-white">Recent link scans</h3><p className="mt-1 text-[11px] text-slate-500">Saved results for your signed-in account.</p></div><span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{history.data?.length ?? 0} records</span></div>
+      {history.isLoading ? <p className="text-xs text-slate-500">Loading scan history...</p> : history.error ? <p role="alert" className="text-xs text-rose-300">{history.error.message}</p> : history.data?.length ? <div className="space-y-2">{history.data.map(scan => <div key={scan.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-xs"><div className="min-w-0"><div className="truncate font-mono text-slate-300">{scan.hostname}</div><div className="text-[10px] text-slate-500">{new Date(scan.createdAt).toLocaleString()}</div></div><div className="flex items-center gap-3"><span className="text-slate-400">Score {scan.riskScore}</span><span className="rounded-full bg-white/10 px-2 py-1 text-[10px] text-slate-300">{scan.verdict.replaceAll("_", " ")}</span></div></div>)}</div> : <p className="text-xs text-slate-500">No saved link scans yet.</p>}
     </div>
   </div>;
 }
