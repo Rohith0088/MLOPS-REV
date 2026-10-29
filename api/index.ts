@@ -1,4 +1,4 @@
-import { createApp } from "../server/_core/app";
+import { createApp } from "../server/_core/app.ts";
 import type { Request, Response } from "express";
 
 let app: ReturnType<typeof createApp> | undefined;
