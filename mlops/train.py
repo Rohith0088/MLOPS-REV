@@ -42,6 +42,8 @@ def main(dataset_name):
     params = yaml.safe_load(
         (ROOT / "params.yaml").read_text()
     )
+    random_state = int(params.get("random_state", 42))
+    threshold = float(params.get("fraud_threshold", 0.5))
 
     dataset_dir = ROOT / "datasets" / dataset_name
 
@@ -140,7 +142,7 @@ def main(dataset_name):
     )[:, 1]
 
     predictions = (
-        probabilities >= 0.5
+        probabilities >= threshold
     ).astype(int)
 
     metrics = {
@@ -170,6 +172,8 @@ def main(dataset_name):
         "train_rows": len(train),
         "test_rows": len(test),
         "feature_count": len(features),
+        "threshold": threshold,
+        "random_state": random_state,
     }
 
     output_dir = (
@@ -220,6 +224,8 @@ def main(dataset_name):
         mlflow.log_params(
             {
                 "dataset": dataset_name,
+                "random_state": random_state,
+                "fraud_threshold": threshold,
                 **params["model"]
             }
         )

@@ -9,7 +9,10 @@ stages:
     params:
       - dataset
       - random_state
+      - fraud_threshold
       - model
     outs:
       - outputs/${dataset}/model.joblib
-      - outputs/${dataset}/metrics.json
+    metrics:
+      - outputs/${dataset}/metrics.json:
+          cache: false
