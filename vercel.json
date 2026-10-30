@@ -19,7 +19,7 @@
     },
     "api/index.ts": {
       "maxDuration": 30,
-      "includeFiles": "{datasets/**,data/reputation/**}"
+      "includeFiles": "{server/**,shared/**,datasets/**,data/reputation/**}"
     }
   }
 }
