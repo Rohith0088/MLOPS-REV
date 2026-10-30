@@ -1,4 +1,3 @@
-import "dotenv/config";
 import express from "express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
