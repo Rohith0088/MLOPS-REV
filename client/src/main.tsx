@@ -7,12 +7,11 @@ import superjson from "superjson";
 import App from "./App";
 import { startLogin } from "./const";
 import { supabase } from "./lib/supabase";
+import { fetchApi, resolveTrpcUrl } from "./lib/api";
 import "./index.css";
 
 const queryClient = new QueryClient();
-const apiBaseUrl = (
-  import.meta.env.VITE_API_BASE_URL ?? "https://mlops-rev-backend.vercel.app"
-).replace(/\/$/, "");
+const trpcUrl = resolveTrpcUrl(import.meta.env.VITE_API_BASE_URL);
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
@@ -44,7 +43,7 @@ queryClient.getMutationCache().subscribe(event => {
 const trpcClient = trpc.createClient({
   links: [
     httpBatchLink({
-      url: `${apiBaseUrl}/api/trpc`,
+      url: trpcUrl,
       transformer: superjson,
       headers() {
         // Preview auto-login fallback: when the browser blocks iframe cookies
@@ -71,14 +70,14 @@ const trpcClient = trpc.createClient({
           ...(init ?? {}),
           credentials: "include" as RequestCredentials,
         };
-        if (!supabase) return globalThis.fetch(input, request);
+        if (!supabase) return fetchApi(input, request);
         return supabase.auth.getSession().then(({ data }) => {
           if (data.session) {
             const headers = new Headers(request.headers);
             headers.set("Authorization", `Bearer ${data.session.access_token}`);
-            return globalThis.fetch(input, { ...request, headers });
+            return fetchApi(input, { ...request, headers });
           }
-          return globalThis.fetch(input, request);
+          return fetchApi(input, request);
         });
       },
     }),

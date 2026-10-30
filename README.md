@@ -76,6 +76,29 @@ Render web services are not used.
 
 Never commit `.env` files or paste service-role keys into `VITE_` variables.
 
+### Detector connection troubleshooting
+
+Link and email scans use the same shared tRPC client. When `VITE_API_BASE_URL`
+is unset or blank, it calls `/api/trpc` on the frontend's own origin. This is
+the intended configuration for local Express/Vite and the combined Vercel site.
+For a separate static frontend, set `VITE_API_BASE_URL` to the actual Node
+backend URL and rebuild the frontend. An origin, `/api` suffix, or full
+`/api/trpc` endpoint is accepted. Do not point it at the Python FastAPI service.
+
+Set `CLIENT_ORIGIN` on the Node backend to the exact static frontend origin
+(multiple origins may be comma-separated), then redeploy that backend. CORS
+remains restricted to this list; do not use a wildcard with session credentials.
+The checked-in Render URL is only valid if that service exists in your account.
+
+Check `/api/health` first. A platform `500 FUNCTION_INVOCATION_FAILED` means the
+Node function crashed before Express could respond; a client URL change cannot
+repair that deployment. Inspect Vercel runtime logs and the deployment commit.
+If GitHub reports `build-rate-limit`, the newest source has not deployed: wait
+for the quota to reset, then deploy that commit. Do not assume a successful local
+build changed the live service. Scan failures are displayed on both detector
+pages, including network/CORS failures and non-JSON hosting errors; failed scan
+mutations are not automatically replayed against another backend.
+
 Fraud Sentinel is an operational dashboard for real-time payment fraud detection and MLOps observability. It presents a seeded 2,000-record synthetic transaction stream, model risk decisions, pipeline health, drift signals, model registry metadata, alert management, and audit events through a single full-stack WebDev project.
 
 > The transaction dataset is synthetic. It is designed to exercise the product workflow and must not be presented as real banking data.

@@ -76,6 +76,8 @@ export default function EmailDetection() {
             {analysis.isPending ? "Reviewing email..." : "Check email risk"}
           </button>
 
+          {analysis.error && <p role="alert" className="mt-2 text-[11px] text-rose-300">{analysis.error.message}</p>}
+
           <div className="mt-6 border-t border-white/10 pt-5">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">Try a demo case</div>
             <div className="flex flex-wrap gap-2">
