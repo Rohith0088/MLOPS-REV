@@ -6,8 +6,8 @@ services:
     staticPublishPath: dist/public
     envVars:
       - key: VITE_API_BASE_URL
-        sync: false
+        value: https://mlops-rev-iec1-bygq52rka-rohith0088s-projects.vercel.app
       - key: VITE_SUPABASE_URL
-        sync: false
+        value: https://zngqkjdrmowohftogbrn.supabase.co
       - key: VITE_SUPABASE_ANON_KEY
         sync: false
