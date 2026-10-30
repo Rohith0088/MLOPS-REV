@@ -1,23 +1,5 @@
 services:
   - type: web
-    name: fraud-sentinel-backend
-    runtime: node
-    buildCommand: pnpm install --frozen-lockfile && pnpm build
-    startCommand: node dist/index.js
-    healthCheckPath: /api/trpc/health
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: CLIENT_ORIGIN
-        sync: false
-      - key: DATABASE_URL
-        sync: false
-      - key: JWT_SECRET
-        generateValue: true
-      - key: DEMO_AUTH_ENABLED
-        value: "false"
-
-  - type: web
     name: fraud-sentinel-frontend
     runtime: static
     buildCommand: pnpm install --frozen-lockfile && pnpm exec vite build

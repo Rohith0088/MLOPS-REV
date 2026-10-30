@@ -59,6 +59,23 @@ python -m pytest tests/test_serverless.py -q
 See [Vercel function configuration](https://vercel.com/docs/project-configuration/vercel-json)
 and [Python runtime dependency configuration](https://vercel.com/docs/functions/runtimes/python).
 
+## Free split deployment
+
+For a no-billing deployment, use Vercel for the backend/API and Render for the
+static frontend. The Render Blueprint contains only the free static site;
+Render web services are not used.
+
+1. Deploy the repository to Vercel and copy its production URL.
+2. In Vercel, set `DATABASE_URL` to the Supabase pooled connection string,
+   `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `JWT_SECRET`, and
+   `CLIENT_ORIGIN` to the Render static-site URL.
+3. In Render, deploy the Blueprint from `render.yaml` and set
+   `VITE_API_BASE_URL` to the Vercel production URL plus no trailing slash.
+   Set the two `VITE_SUPABASE_*` values there as well because they are compiled
+   into the frontend.
+
+Never commit `.env` files or paste service-role keys into `VITE_` variables.
+
 Fraud Sentinel is an operational dashboard for real-time payment fraud detection and MLOps observability. It presents a seeded 2,000-record synthetic transaction stream, model risk decisions, pipeline health, drift signals, model registry metadata, alert management, and audit events through a single full-stack WebDev project.
 
 > The transaction dataset is synthetic. It is designed to exercise the product workflow and must not be presented as real banking data.
