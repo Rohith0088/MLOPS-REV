@@ -2,13 +2,13 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "framework": "vite",
-  "buildCommand": "pnpm exec vite build",
+  "buildCommand": "pnpm exec vite build && pnpm exec esbuild api/index.ts --platform=node --packages=external --bundle --format=esm --outfile=api/index.js",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist/public",
   "routes": [
     { "src": "/fastapi(?:/(.*))?", "dest": "/api/fastapi/$1" },
     { "src": "/api/fastapi(?:/(.*))?", "dest": "/api/fastapi/$1" },
-    { "src": "/api/(.*)", "dest": "/api/index.ts" },
+    { "src": "/api/(.*)", "dest": "/api/index.js" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
@@ -17,7 +17,7 @@
       "maxDuration": 30,
       "excludeFiles": "{node_modules/**,client/**,server/**,dist/**,datasets/**,data/**,tests/**,.git/**,.env*,.venv/**,.npm/**,tmp/**,outputs/**,monitoring/**,mlops/**}"
     },
-    "api/index.ts": {
+    "api/index.js": {
       "maxDuration": 30,
       "includeFiles": "{server/**,shared/**,datasets/**,data/reputation/**}"
     }
