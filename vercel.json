@@ -7,7 +7,7 @@
   "outputDirectory": "dist/public",
   "routes": [
     { "src": "/fastapi/(.*)", "dest": "/api/fastapi" },
-    { "src": "/api/(.*)", "dest": "/api/index.ts" },
+    { "src": "/api/(.*)", "dest": "/serverless/node-entry.ts" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }
   ],
@@ -16,7 +16,7 @@
       "maxDuration": 30,
       "excludeFiles": "{node_modules/**,client/**,server/**,dist/**,datasets/**,data/**,tests/**,.git/**,.env*,.venv/**,.npm/**,tmp/**,outputs/**,monitoring/**,mlops/**}"
     },
-    "api/index.ts": {
+    "serverless/node-entry.ts": {
       "maxDuration": 30,
       "includeFiles": "{datasets/**,data/reputation/**}"
     }
