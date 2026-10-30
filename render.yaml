@@ -2,7 +2,6 @@ services:
   - type: web
     name: fraud-sentinel-backend
     runtime: node
-    plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm build
     startCommand: node dist/index.js
     healthCheckPath: /api/trpc/health
@@ -21,7 +20,6 @@ services:
   - type: web
     name: fraud-sentinel-frontend
     runtime: static
-    plan: free
     buildCommand: pnpm install --frozen-lockfile && pnpm exec vite build
     staticPublishPath: dist/public
     envVars:
