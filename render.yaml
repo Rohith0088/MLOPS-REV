@@ -1,5 +1,40 @@
 services:
   - type: web
+    name: fraud-sentinel-fastapi
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: CLIENT_ORIGIN
+        value: https://fraud-sentinel-frontend.onrender.com
+      - key: MODEL_PATH
+        value: models/model.joblib
+
+  - type: web
+    name: fraud-sentinel-backend
+    runtime: node
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: pnpm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CLIENT_ORIGIN
+        value: https://fraud-sentinel-frontend.onrender.com
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: OAUTH_SERVER_URL
+        sync: false
+      - key: VITE_APP_ID
+        sync: false
+      - key: BUILT_IN_FORGE_API_URL
+        sync: false
+      - key: BUILT_IN_FORGE_API_KEY
+        sync: false
+
+  - type: web
     name: fraud-sentinel-frontend
     runtime: static
     buildCommand: pnpm install --frozen-lockfile && pnpm exec vite build

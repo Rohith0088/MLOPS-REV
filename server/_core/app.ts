@@ -34,6 +34,9 @@ export function createApp() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   registerStorageProxy(app);
   registerOAuthRoutes(app);
+  app.get("/api/health", (_req, res) => {
+    res.json({ status: "ok", service: "fraud-sentinel-backend" });
+  });
   app.use("/api/trpc", createExpressMiddleware({
     router: appRouter,
     createContext,
