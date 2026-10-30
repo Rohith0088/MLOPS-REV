@@ -6,7 +6,8 @@
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist/public",
   "routes": [
-    { "src": "/fastapi/(.*)", "dest": "/api/fastapi" },
+    { "src": "/fastapi(?:/(.*))?", "dest": "/api/fastapi/$1" },
+    { "src": "/api/fastapi(?:/(.*))?", "dest": "/api/fastapi/$1" },
     { "src": "/api/(.*)", "dest": "/api/index.ts" },
     { "handle": "filesystem" },
     { "src": "/(.*)", "dest": "/index.html" }

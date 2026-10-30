@@ -1,12 +1,26 @@
 from datetime import datetime, timezone
+import os
 import time
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from prometheus_client import Counter, Histogram, make_asgi_app
 from src.common.config import settings
 from src.common.model import frame_from_transaction, load_model
 from src.common.schemas import Transaction, Prediction
 
 app = FastAPI(title="Real-Time Fraud Detection API", version="1.0.0")
+allowed_origins = [
+    origin.strip().rstrip("/")
+    for origin in os.getenv("CLIENT_ORIGIN", "").split(",")
+    if origin.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 REQUESTS = Counter("fraud_prediction_requests_total", "Prediction requests")
 FRAUDS = Counter("fraud_predictions_total", "Fraud predictions")
 LATENCY = Histogram("fraud_prediction_latency_seconds", "Prediction latency")
