@@ -1,3 +1,8 @@
 import { createApp } from "../server/_core/app";
+import type { Request, Response } from "express";
 
-export default createApp();
+const app = createApp();
+
+export default function handler(req: Request, res: Response): void {
+  app(req, res);
+}
